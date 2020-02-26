@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import cPickle
 import sqlite3
 import sys
 from geopy.distance import great_circle
@@ -9,6 +8,7 @@ from subprocess import check_output
 from preprocessing import get_coordinates, print_stats, index_to_coord, generate_strings_from_file
 from preprocessing import BATCH_SIZE, REVERSE_MAP_2x2
 from preprocessing import generate_arrays_from_file
+import pickle
 
 # For command line use, type: python test.py <dataset name>
 # For example: python test.py lgl_gold
@@ -19,7 +19,7 @@ else:
 
 saved_model_file = u"../data/weights"
 print(u"Testing:", test_data, u"with weights:", saved_model_file)
-word_to_index = cPickle.load(open(u"data/words2index.pkl"))  # This is the vocabulary file
+word_to_index = pickle.load(open(u"data/words2index.pkl","rb"),fix_imports=True)  # This is the vocabulary file
 #  --------------------------------------------------------------------------------------------------------------------
 print(u'Loading model...')
 model = load_model(saved_model_file)
@@ -31,6 +31,8 @@ print(u'Crunching numbers, sit tight...')
 conn = sqlite3.connect(u'../data/geonames.db')
 file_name = u"data/eval_" + test_data + u".txt"
 final_errors = []
+
+print("Processing file..."+file_name)
 for prediction, (y, name, context) in zip(model.predict_generator(generate_arrays_from_file(file_name, word_to_index, train=False),
                                           steps=int(check_output([u"wc", file_name]).split()[0]) / BATCH_SIZE, verbose=True), generate_strings_from_file(file_name)):
     prediction = index_to_coord(REVERSE_MAP_2x2[np.argmax(prediction)], 2)
@@ -43,13 +45,16 @@ for prediction, (y, name, context) in zip(model.predict_generator(generate_array
     # candidates = [candidates[0]]  # Uncomment for population heuristic.
     # THE ABOVE IS THE POPULATION ONLY BASELINE IMPLEMENTATION
 
+    #print("Prediction..."+" ".join(y)+"..."+name+".."+str(context))
+    print("Prediction..."+" "+str(y)+"...."+name+".."+context)
     best_candidate = []
     max_pop = candidates[0][2]
     bias = 0.905  # the Bias parameter in the paper
     for candidate in candidates:
+        print(candidate)
         err = great_circle(prediction, (float(candidate[0]), float(candidate[1]))).km
         best_candidate.append((err - (err * max(1, candidate[2]) / max(1, max_pop)) * bias, (float(candidate[0]), float(candidate[1]))))
-    best_candidate = sorted(best_candidate, key=lambda (a, b): a)[0]
+    best_candidate = sorted(best_candidate, key=lambda a: a[0])[0]
     final_errors.append(great_circle(best_candidate[1], y).km)
 
     # ---------------- ERROR DIAGNOSTICS --------------------

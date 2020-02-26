@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import sqlite3
-import cPickle
+import pickle
 import numpy as np
 import spacy
 
@@ -42,7 +42,7 @@ def text2mapvec(doc, mapping, outliers, polygon_size, db, exclude):
                 entities.extend(coords)
             location = u""
 
-    entities = sorted(entities, key=lambda (a, b, c, d): c, reverse=True)
+    entities = sorted(entities, key=lambda a: a[2], reverse=True)
     mapvec = np.zeros(len(mapping), )
 
     if len(entities) == 0:
@@ -86,7 +86,7 @@ def get_coordinates(con, loc_name):
     result = con.execute(u"SELECT METADATA FROM GEO WHERE NAME = ?", (loc_name.lower(),)).fetchone()
     if result:
         result = eval(result[0])  # Do not remove the sorting, the function below assumes sorted results!
-        return sorted(result, key=lambda (a, b, c, d): c, reverse=True)
+        return sorted(result, key=lambda a: a[2], reverse=True)
     else:
         return []
 
@@ -98,8 +98,8 @@ def buildMapVec(text):
     :param text: to create the Map Vector from encoded as unicode.
     :return: currently only prints the vector, add 'return map_vector' or whatever you prefer.
     """
-    ENCODING_MAP = cPickle.load(open(u"data/1x1_encode_map.pkl"))  # the resolution of the map
-    OUTLIERS_MAP = cPickle.load(open(u"data/1x1_outliers_map.pkl"))  # dimensions must match the above
+    ENCODING_MAP = pickle.load(open(u"data/1x1_encode_map.pkl","rb"),fix_imports=True)  # the resolution of the map
+    OUTLIERS_MAP = pickle.load(open(u"data/1x1_outliers_map.pkl","rb"),fix_imports=True)  # dimensions must match the above
     nlp = spacy.load(u'en_core_web_lg')  # or spacy.load(u'en') depending on your Spacy Download (simple or full)
     conn = sqlite3.connect(u'../data/geonames.db').cursor()  # this DB can be downloaded using the GitHub link
     map_vector = text2mapvec(doc=nlp(text), mapping=ENCODING_MAP, outliers=OUTLIERS_MAP, polygon_size=1, db=conn, exclude=u"Cairo")
